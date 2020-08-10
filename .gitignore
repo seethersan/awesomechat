@@ -1,9 +1,12 @@
 /.env
 /.vscode
 **/__pycache__
+__pycache__/
+*.py[cod]
 *.sqlite3
 *.db
 *.zip
 *.json
 /static
 *.DS_Store
+awesomechat/__pycache__/settings.cpython-37.pyc
