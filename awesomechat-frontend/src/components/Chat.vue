@@ -21,7 +21,7 @@
               <div class="row chat-section">
                 <div class="col-sm-7 offset-3">
                   <span class="card-text speech-bubble speech-bubble-user float-right text-white subtle-blue-gradient">
-                    Whatsup, another chat app?
+                    Whats's up, another chat app?
                   </span>
                 </div>
                 <div class="col-sm-2">
@@ -34,7 +34,7 @@
                 </div>
                 <div class="col-sm-7">
                   <p class="card-text speech-bubble speech-bubble-peer">
-                    Yes this is Chatire, it's pretty cool and it's Open source
+                    Yes this is Awesome Chat, it's pretty cool and it's Open source
                     and it was built with Django and Vue JS so we can tweak it to our satisfaction.
                   </p>
                 </div>
@@ -77,7 +77,7 @@
         </div>
 
         <div v-else>
-          <h3 class="text-center">Welcome !</h3>
+          <h3 class="text-center">Welcome!</h3>
 
           <br />
 
