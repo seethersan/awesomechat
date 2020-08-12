@@ -9,64 +9,37 @@
           </div>
 
           <div class="card-body">
-            <div class="container chat-body">
-              <div class="row chat-section">
-                <div class="col-sm-2">
-                  <img class="rounded-circle" src="http://placehold.it/40/f16000/fff&text=D" />
-                </div>
-                <div class="col-sm-7">
-                  <span class="card-text speech-bubble speech-bubble-peer">Hello!</span>
-                </div>
-              </div>
-              <div class="row chat-section">
-                <div class="col-sm-7 offset-3">
-                  <span class="card-text speech-bubble speech-bubble-user float-right text-white subtle-blue-gradient">
-                    Whats's up, another chat app?
-                  </span>
-                </div>
-                <div class="col-sm-2">
-                  <img class="rounded-circle" src="http://placehold.it/40/333333/fff&text=A" />
-                </div>
-              </div>
-              <div class="row chat-section">
-                <div class="col-sm-2">
-                  <img class="rounded-circle" src="http://placehold.it/40/f16000/fff&text=D" />
-                </div>
-                <div class="col-sm-7">
-                  <p class="card-text speech-bubble speech-bubble-peer">
-                    Yes this is Awesome Chat, it's pretty cool and it's Open source
-                    and it was built with Django and Vue JS so we can tweak it to our satisfaction.
-                  </p>
-                </div>
-              </div>
-              <div class="row chat-section">
-                <div class="col-sm-7 offset-3">
-                  <p class="card-text speech-bubble speech-bubble-user float-right text-white subtle-blue-gradient">
-                    Okay i'm already hacking around let me see what i can do to this thing.
-                  </p>
-                </div>
-                <div class="col-sm-2">
-                  <img class="rounded-circle" src="http://placehold.it/40/333333/fff&text=A" />
-                </div>
-              </div>
-              <div class="row chat-section">
-                <div class="col-sm-7 offset-3">
-                  <p class="card-text speech-bubble speech-bubble-user float-right text-white subtle-blue-gradient">
-                    We should invite james to see this.
-                  </p>
-                </div>
-                <div class="col-sm-2">
-                  <img class="rounded-circle" src="http://placehold.it/40/333333/fff&text=A" />
-                </div>
+            <div class="container chat-body" ref="chatBody">
+              <div v-for="message in messages" :key="message.id" class="row chat-section">
+                <template v-if="username === message.user.username">
+                  <div class="col-sm-7 offset-3">
+                    <span class="card-text speech-bubble speech-bubble-user float-right text-white subtle-blue-gradient">
+                      {{ message.message }}
+                    </span>
+                  </div>
+                  <div class="col-sm-2">
+                    <img class="rounded-circle" :src="`http://placehold.it/40/007bff/fff&text=${message.user.username[0].toUpperCase()}`" />
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="col-sm-2">
+                    <img class="rounded-circle" :src="`http://placehold.it/40/333333/fff&text=${message.user.username[0].toUpperCase()}`" />
+                  </div>
+                  <div class="col-sm-7">
+                    <span class="card-text speech-bubble speech-bubble-peer">
+                      {{ message.message }}
+                    </span>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
 
           <div class="card-footer text-muted">
-            <form>
+            <form @submit.prevent="postMessage">
               <div class="row">
                 <div class="col-sm-10">
-                  <input type="text" placeholder="Type a message" />
+                  <input v-model="message" type="text" placeholder="Type a message" />
                 </div>
                 <div class="col-sm-2">
                   <button class="btn btn-primary">Send</button>
@@ -96,13 +69,14 @@
   </div>
 </template>
 
-<script>
-// eslint-disable-next-line no-unused-vars
+<script>// eslint-disable-next-line no-unused-vars
 const $ = window.jQuery
 
 export default {
   data () {
     return {
+      messages: [],
+      message: '',
       sessionStarted: false
     }
   },
@@ -110,6 +84,7 @@ export default {
   created () {
     this.username = sessionStorage.getItem('username')
 
+    // Setup headers for all requests
     $.ajaxSetup({
       headers: {
         'Authorization': `Token ${sessionStorage.getItem('authToken')}`
@@ -118,9 +93,16 @@ export default {
 
     if (this.$route.params.uri) {
       this.joinChatSession()
+      this.connectToWebSocket()
     }
+  },
 
-    setInterval(this.fetchChatSessionHistory, 3000)
+  updated () {
+    // Scroll to bottom of Chat window
+    const chatBody = this.$refs.chatBody
+    if (chatBody) {
+      chatBody.scrollTop = chatBody.scrollHeight
+    }
   },
 
   methods: {
@@ -129,32 +111,27 @@ export default {
         alert("A new session has been created you'll be redirected automatically")
         this.sessionStarted = true
         this.$router.push(`/chats/${data.uri}/`)
+        this.connectToWebSocket()
       }).fail((response) => {
         alert(response.responseText)
       })
     },
-
     postMessage (event) {
       const data = {message: this.message}
-
       $.post(`http://localhost:8000/api/chats/${this.$route.params.uri}/messages/`, data, (data) => {
-        this.messages.push(data)
         this.message = '' // clear the message after sending
       }).fail((response) => {
         alert(response.responseText)
       })
     },
-
     joinChatSession () {
       const uri = this.$route.params.uri
-
       $.ajax({
         url: `http://localhost:8000/api/chats/${uri}/`,
         data: {username: this.username},
         type: 'PATCH',
         success: (data) => {
           const user = data.members.find((member) => member.username === this.username)
-
           if (user) {
             // The user belongs/has joined the session
             this.sessionStarted = true
@@ -163,11 +140,32 @@ export default {
         }
       })
     },
-
     fetchChatSessionHistory () {
       $.get(`http://127.0.0.1:8000/api/chats/${this.$route.params.uri}/messages/`, (data) => {
         this.messages = data.messages
       })
+    },
+    connectToWebSocket () {
+      const websocket = new WebSocket(`ws://localhost:8081/${this.$route.params.uri}`)
+      websocket.onopen = this.onOpen
+      websocket.onclose = this.onClose
+      websocket.onmessage = this.onMessage
+      websocket.onerror = this.onError
+    },
+    onOpen (event) {
+      console.log('Connection opened.', event.data)
+    },
+    onClose (event) {
+      console.log('Connection closed.', event.data)
+      // Try and Reconnect after five seconds
+      setTimeout(this.connectToWebSocket, 5000)
+    },
+    onMessage (event) {
+      const message = JSON.parse(event.data)
+      this.messages.push(message)
+    },
+    onError (event) {
+      alert('An error occured:', event.data)
     }
   }
 }
